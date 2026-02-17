@@ -65,16 +65,22 @@ function list_decks(ctx)
     print(req)
     local userId = get_user_id(req)
     if userId == nil then return end
-    print(string.format("[LOG] Action: list_decks | UserID: %s | Time: %s", 
-          tostring(userId), os.date("!%Y-%m-%dT%H:%M:%SZ")))
 
-    local decks, err = potato.db.find_all_by_cond("Decks", { is_deleted = 0})
+    local decks, err = potato.db.run_query([[
+        SELECT Decks.*, COUNT(Cards.id) AS card_count
+        FROM Decks 
+        LEFT JOIN Cards ON Decks.id = Cards.deck_id 
+        WHERE Decks.is_deleted = 0
+        GROUP BY Decks.id
+    ]])
+    print()
 
     if err ~= nil then
-        print("[ERROR] Database failure: " .. tostring(err))
+         print("[ERROR] Database failure: " .. tostring(err))
         req.json(400, { error = tostring(err) })
         return
     end
+
     req.json_array(200, decks)
 end
 
@@ -111,8 +117,15 @@ function create_deck(ctx)
     local deck = {
         name = data.name,
         icon = data.icon,
-        is_deleted = 0
+        is_deleted = 0,
+        user_id = userId
     }
+  
+    local ifOldDeck, _ = potato.db.find_all_by_cond("Decks", {name=data.name})
+    if ifOldDeck and #ifOldDeck > 0 then
+        req.json(409, {error = "Deck with this name already exist"});
+        return
+    end
 
     local id, err = potato.db.insert("Decks", deck)
     if err ~= nil then
@@ -127,33 +140,40 @@ end
 
 function update_deck(ctx, deck_id)
     local req = ctx.request()
-    local data = req.bing_json()
+    local data = req.bind_json()
     local userId = get_user_id(req)
     if userId == nil then return end
 
 
     local deck = {
+        id = data.id,
         name = data.name, 
         icon = data.icon,
         is_deleted = 0
     }
+    local ifOldDeck, _ = potato.db.find_all_by_cond("Decks", {name=data.name})
+    if ifOldDeck and #ifOldDeck > 0 then
+        req.json(409, {error = "Deck with this name already exist"});
+        return
+    end
 
-    local res = db.query([[
-        UPDATE decks
+    local res = potato.db.run_query([[
+        UPDATE Decks
         SET name = ?, icon = ?
         WHERE id = ? AND user_id = ?
-    ]], deck.name, deck.icon, deck_id, userId)
+    ]], deck.name, deck.icon, deck.id, userId)
 
 
     if res.affected_rows == 0 then
         return { status = 404, json = {error = "Deck not found or access denied"} }
     end
+
     
     return {
         status = 200,
         json = {
             message = "Deck updated sucessfully",
-            deck = deck
+            id = deck.id
         }
     }
 end
@@ -162,7 +182,7 @@ end
 function delete_deck(ctx, deck_id)
     local req = ctx.request()
     local userId = get_user_id(req)
-    if userID == nil then return end
+    if userId == nil then return end
 
     if deck_id == nil then 
         req.json(400, {
@@ -207,7 +227,7 @@ function on_http(ctx)
         return list_decks(ctx)
     end
 
-    if path == "decks" and method == "POST" then
+    if path == "/decks" and method == "POST" then
         return create_deck(ctx)
     end
 

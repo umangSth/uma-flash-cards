@@ -1,9 +1,44 @@
 import { useState } from 'react';
 import { IconPicker } from './IconPicker';
+import { createDeck } from '../../lib/api';
 
-export const CreateDeckForm = ({ onSave }: { onSave: (name: string) => void }) => {
+
+export const CreateDeckForm = (
+  {
+    closeModal, setNewData}:{
+    closeModal: ()=>void,
+    setNewData: (data)=>void}
+  ) => {
   const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
   const [icon, setIcon] = useState('book');
+  const [error, setError] = useState('');
+
+
+  const submitDeck = async () => {
+      setLoading(true)
+        if(name === "" || icon === ""){
+          setError("Field still empty!!");
+          setLoading(false)
+          return;
+        }
+        try{
+          const response = await createDeck({name, icon})
+          if (response.error){
+            setError(response?.error)
+            return;
+          }
+          if (response.status === 200){
+            setNewData((prev)=>[...prev, {id:response.data.id, name:name, icon:icon, card_count:'0'}])
+            closeModal()
+          }
+        }catch(err){
+            setError(err)
+            console.error("Error in submit: ", err)
+        }finally{
+          setLoading(false)
+        }
+  }
 
   return (
     <div className="space-y-4">
@@ -23,12 +58,16 @@ export const CreateDeckForm = ({ onSave }: { onSave: (name: string) => void }) =
         <IconPicker selected={icon} onSelect={setIcon} />
       </div>
 
+      {error && 
+      <div>
+        <p className="text-xs text-red-500">{error}</p>
+      </div>}
 
       <button
-        onClick={() => onSave(name)}
+        onClick={() => submitDeck()}
         className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
       >
-        Save Deck
+       {loading ? "Saving" : "Save Deck" }
       </button>
     </div>
   );

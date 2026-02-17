@@ -9,21 +9,22 @@ import { useNavigate } from 'react-router';
 import { BASE_PATH } from '../../lib/base';
 import { listDecks } from '../../lib/api';
 
+ // Dummy data to visualize the UI
+  const dummyDecks = [
+    { id: 1, name: 'French Basics', card_count: 12, icon: 'languages' },
+    { id: 2, name: 'Travel Phrases', card_count: 45, icon: 'globe' },
+    { id: 3, name: 'Medical Terminology', card_count: 120, icon: 'heart' },
+  ];
 
 const DecksPage = () => {
   const { openModal, closeModal } = useModal();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('')
-  const [deckData, setDeckData] = useState<any>(null)
+  const [deckData, setDeckData] = useState<any>(dummyDecks)
   const navigate = useNavigate();
 
 
-  // Dummy data to visualize the UI
-  const dummyDecks = [
-    { id: 1, name: 'French Basics', cardCount: 12, icon: 'languages' },
-    { id: 2, name: 'Travel Phrases', cardCount: 45, icon: 'globe' },
-    { id: 3, name: 'Medical Terminology', cardCount: 120, icon: 'heart' },
-  ];
+ 
 
   useEffect(()=>{
     loadDecks()
@@ -36,8 +37,7 @@ const DecksPage = () => {
         setError(response.error)
         console.log(`Failed to load deck - error message:${response.error}`)
     } else {
-      console.log('-----------200 response ', response?.data)
-       setDeckData(response?.data)
+          setDeckData(response.data)
     }
   } 
 
@@ -48,18 +48,12 @@ const DecksPage = () => {
       title: 'Create New Deck',
       maxWidth: '400px',
       content: (
-        <CreateDeckForm
-          onSave={(name) => {
-            console.log("Saving deck:", name);
-            // Later we will call the API here
-            closeModal();
-          }}
-        />
+        <CreateDeckForm closeModal={()=>closeModal()} setNewData={setDeckData} />
       )
     });
   };
 
-  const handleEditDeck = ( id: number, name: string, icon: string ) => {
+  const handleEditDeck = ( id: number, name: string, icon: string, card_count: string ) => {
   openModal({
     title: 'Edit Deck',
     maxWidth: '400px',
@@ -67,16 +61,10 @@ const DecksPage = () => {
       <EditDeckForm 
         initialName={name}
         initialIcon={icon}
-        onSave={(newName, newIcon) => {
-          console.log(`Updating deck ${id}:`, newName, newIcon);
-          // TODO: Call your update API
-          closeModal();
-        }} 
-        onDelete={() => {
-          console.log(`Deleting deck ${id}`);
-          // TODO: Call your delete API
-          closeModal();
-        }}
+        id={id}
+        closeModal ={()=>closeModal()}
+        setNewData = {setDeckData}
+        card_count = {card_count}
       />
     )
   });
@@ -104,7 +92,7 @@ const DecksPage = () => {
 
       {/* Grid of Decks */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {dummyDecks.map((deck) => (
+        {deckData.map((deck) => (
           <div
             key={deck.id}
             className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer relative"
@@ -119,7 +107,7 @@ const DecksPage = () => {
             </div>
 
             <h3 className="text-lg font-semibold text-gray-800 mb-1">{deck.name}</h3>
-            <p className="text-gray-500 text-sm mb-6">{deck.cardCount} cards</p>
+            <p className="text-gray-500 text-sm mb-6">{deck.card_count} cards</p>
 
             <div className="flex gap-2">
               <button 
@@ -129,7 +117,7 @@ const DecksPage = () => {
                 Study
               </button>
               <button 
-                onClick={()=>handleEditDeck(deck.id, deck.name, deck.icon)}
+                onClick={()=>handleEditDeck(deck.id, deck.name, deck.icon, deck.card_count)}
                 className="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-gray-50 text-gray-600 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold">
                 <BookOpen size={16} />
                 Edit

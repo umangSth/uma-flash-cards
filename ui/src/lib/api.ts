@@ -58,6 +58,7 @@ export interface Deck {
     name: string,
     info: string,
     icon: string,
+    card_count: string,
     created_at: string,
     updated_at: string,
     is_deleted: number,
@@ -93,8 +94,8 @@ export async function createDeck(data: { name: string; info?: string; icon?: str
     })
 }
 
-export async function updateDeck(id: number, data: { name?: string; info?:string; icon?: string}): Promise<ApiResponse<Deck>> {
-    return apiRequest<Deck>(`/decks/${id}`, {
+export async function updateDeck(data: { id?:number, name?: string; info?:string; icon?: string, card_count?: string}): Promise<ApiResponse<Deck>> {
+    return apiRequest<Deck>(`/decks/${data.id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
     })
