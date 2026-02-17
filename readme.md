@@ -1,0 +1,1 @@
+This is a simple flash cards, build under [Potatoverse](https://github.com/blue-monads/potatoverse).
