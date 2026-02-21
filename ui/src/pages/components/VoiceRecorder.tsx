@@ -5,9 +5,11 @@ import { useState, useEffect, useRef } from 'react';
 
 interface VoiceRecorderProps {
   onAudioSerialized: (base64: string) => void;
+  recordFlag: boolean;
+  setRecordStatus: (status: string)=>void;
 }
 
-export const VoiceRecorder = ({ onAudioSerialized }: VoiceRecorderProps) => {
+export const VoiceRecorder = ({ onAudioSerialized, recordFlag, setRecordStatus }: VoiceRecorderProps) => {
   const [base64Audio, setBase64Audio] = useState<string | null>(null);
   const [errors, setError] = useState('');
   const [seconds, setSeconds] = useState(0)
@@ -20,7 +22,6 @@ export const VoiceRecorder = ({ onAudioSerialized }: VoiceRecorderProps) => {
 
     useEffect(()=> {
       if (status === 'recording') {
-        
         timerRef.current = setInterval(()=>{
           setSeconds((prev) => prev + 1);
        },1000);
@@ -37,6 +38,16 @@ export const VoiceRecorder = ({ onAudioSerialized }: VoiceRecorderProps) => {
         stopRecording();
       }
     }, [seconds, status, stopRecording])
+
+  useEffect(() => {
+    if (recordFlag && status === 'recording') {
+      stopRecording();
+    }
+  }, [recordFlag, status]);
+
+    useEffect(()=>{
+      setRecordStatus(status)
+    },[status])
 
   // Convert Blob to Base64 when recording stops
   useEffect(() => {
@@ -79,7 +90,7 @@ export const VoiceRecorder = ({ onAudioSerialized }: VoiceRecorderProps) => {
       <div className="flex items-center gap-4">
         {status !== 'recording' && !mediaBlobUrl && (
           <button
-            onClick={startRecording}
+            onClick={()=>{startRecording();}}
             className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-50 hover:text-red-600 transition-colors"
           >
             <Mic size={16} /> Record Pronunciation

@@ -58,7 +58,7 @@ function run_schema_sql(ctx)
 end
 
 
-
+-------------- decks section ----------------------
 -- list all the decks
 function list_decks(ctx)
     local req = ctx.request()
@@ -70,10 +70,9 @@ function list_decks(ctx)
         SELECT Decks.*, COUNT(Cards.id) AS card_count
         FROM Decks 
         LEFT JOIN Cards ON Decks.id = Cards.deck_id 
-        WHERE Decks.is_deleted = 0
+        WHERE Decks.is_deleted = 0 and Decks.user_id = ?
         GROUP BY Decks.id
-    ]])
-    print()
+    ]], userId)
 
     if err ~= nil then
          print("[ERROR] Database failure: " .. tostring(err))
@@ -84,28 +83,6 @@ function list_decks(ctx)
     req.json_array(200, decks)
 end
 
--- get deck info and its cards
-function get_cards_from_deck_id(ctx, deck_id) 
-    local req = ctx.request()
-    local userId = get_user_id(req)
-    if userId == nil then return end
-
-    local deck, err = potato.db.find_all_by_cond("Decks", { is_deleted = 0})
-
-    if err ~= nil or deck == nil or deck.is_deleted == 1 then
-        req.json(404, { error  =  "Deck not found"})
-        return 
-    end
-
-
-    local cards, cards_err = potato.db.find_all_by_cond("Cards", {
-        deck_id = deck_id,
-        is_deleted = 0
-    })
-
-    deck.cards = cards or {}
-    req.json(200, deck)
-end
 
 
 function create_deck(ctx)
@@ -207,6 +184,94 @@ function delete_deck(ctx, deck_id)
 end
 
 
+------------ cards section --------------
+-- get deck info and its cards
+function get_cards_from_deck_id(ctx, deck_id) 
+    local req = ctx.request()
+    local userId = get_user_id(req)
+    if userId == nil then return end
+
+    local deck, err = potato.db.find_by_id("Decks", deck_id)
+
+    if err ~= nil or deck == nil or deck.is_deleted == 1 then
+        req.json(404, { error  =  "Deck not found"})
+        return 
+    end
+
+
+    local cards, cards_err = potato.db.find_all_by_cond("Cards", {
+        deck_id = deck_id,
+        is_deleted = 0,
+    })
+
+    deck.cards = (#cards > 0) and cards or {}
+    req.json(200, deck)
+end
+
+
+function create_card(ctx, deck_id)
+    local req = ctx.request()
+    local data = req.bind_json()
+    local userId = get_user_id(req)
+    if userId == nil then return end
+
+    local ifOldDeck, _ = potato.db.find_all_by_cond("Decks", {id = deck_id})
+      if #ifOldDeck == 0 then
+        req.json(409, {error = "Deck doesn't exist!!"});
+        return
+    end
+
+    local card = {
+        deck_id = deck_id,
+        front_text = data.front_text,
+        back_text = data.back_text,
+        voice_data = data.voice_data or '',
+        is_deleted = 0
+    }
+
+    local id, err = potato.db.insert("Cards", card)
+    if err ~= nil then
+        req.json(400, { error = tostring(err)})
+        return
+    end
+
+    req.json(200, {id=id, message="Card created!"})
+end
+
+
+function update_card(ctx, deck_id, card_id)
+    local req = ctx.request()
+    local data = req.bind_json()
+    local userId = get_user_id(req)
+    if userId == nil then return end
+
+    local temp = {
+        front_text = data.front_text,
+        back_text = data.back_text,
+        voice_data = data.voice_data or '',
+    }
+    local id, err = potato.db.update_by_id("Cards", card_id, temp)
+    if err ~= nil then
+        req.json(400, { error = tostring(err)})
+    end
+
+    req.json(200, { id=id, message="card updated!"})
+end
+
+function delete_card(ctx, deck_id, card_id)
+
+    local req = ctx.request()
+    local userId = get_user_id(req)
+    if userId == nil then return end
+
+    local err = potato.db.delete_by_id("Cards", card_id)
+     if err ~= nil then
+        req.json(400, { error = tostring(err)})
+    end
+
+    req.json(200, { id=card_id, message="card delete!"})
+
+end
 
 function on_http(ctx)
     local req = ctx.request()
@@ -245,12 +310,29 @@ function on_http(ctx)
     end
 
 
-    local card_deck_id_match = string.match(path, "^/decks/(%d+)$/cards")
+    local card_deck_id_match = string.match(path, "^/decks/(%d+)/cards")
     if card_deck_id_match then
         local deck_id = tonumber(card_deck_id_match)
         if deck_id ~= nil then
             if method == "GET" then
-                return get_cards_from_deck(ctx, deck_id)
+                return get_cards_from_deck_id(ctx, deck_id)
+            end
+            if method == "POST" then 
+                return create_card(ctx, deck_id)
+            end
+        end
+    end
+
+    local deck_str, card_str = string.match(path, "^/decks/(%d+)/cards/(%d+)")
+    if deck_str and card_str then
+        local deck_id = tonumber(deck_str)
+        local card_id = tonumber(card_str)
+
+        if deck_id and card_id then
+            if method == "PUT" or method == "PATCH" then
+                return update_card(ctx, deck_id, card_id)
+            elseif method == "DELETE" then
+                return delete_card(ctx, deck_id, card_id)
             end
         end
     end

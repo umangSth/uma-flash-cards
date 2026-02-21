@@ -33,7 +33,6 @@ export async function apiRequest<T> (
         ...options,
         headers,
     })
-    console.log("----------response from apiRequest function:::::",response, 'path:',API_BASE_PATH, path )
     const data = await response.json().catch(()=> ({ error: 'Unknown error '}));
 
     return {
@@ -109,6 +108,18 @@ export async function deleteDeck(id: number): Promise<ApiResponse<{ message: str
 
 // ------ Cards API ---------
 
+interface CardData {
+    id?:number;
+    front_text: string;
+    back_text: string;
+    voice_data?: string;
+    deck_id: string;
+    // fix me spelling _____
+    is_deleted: boolean;
+}
+
+
+
 export async function listCards(deckId: number): Promise<ApiResponse<Card[]>> {
     return apiRequest<Card[]>(`/decks/${deckId}/cards`, { method: 'GET'});
 }
@@ -116,13 +127,8 @@ export async function listCards(deckId: number): Promise<ApiResponse<Card[]>> {
 
 
 
-export async function createCard(data: {
-    deck_id: number;
-    front_text: string;
-    back_text: string;
-    voice_data?: string;
-}): Promise<ApiResponse<Card>> {
-    return apiRequest<Card>('/cards',{
+export async function createCard(data:CardData): Promise<ApiResponse<Card>> {
+    return apiRequest<Card>(`/decks/${data.deck_id}/cards`,{
         method: 'POST',
         body: JSON.stringify(data),
     })
@@ -130,17 +136,13 @@ export async function createCard(data: {
 
 
 
-export async function updateCard(id: number, data: { 
-    front_text?: string; 
-    back_text?: string; 
-    voice_data?: string 
-}): Promise<ApiResponse<Card>> {
-    return apiRequest<Card>(`/cards/${id}`, {
+export async function updateCard(data: CardData): Promise<ApiResponse<Card>> {
+    return apiRequest<Card>(`/decks/${data.deck_id}/cards/${data.id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
     });
 }
 
-export async function deleteCard(id: number): Promise<ApiResponse<{ message: string }>> {
-    return apiRequest<{ message: string }>(`/cards/${id}`, { method: 'DELETE' });
+export async function deleteCard(data:any): Promise<ApiResponse<{ message: string }>> {
+    return apiRequest<{ message: string }>(`/decks/${data.deckId}/cards/${data.cardId}`, { method: 'DELETE' });
 }
